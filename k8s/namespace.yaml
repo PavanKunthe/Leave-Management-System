@@ -1,0 +1,4 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: leave-mgmt          # All our resources will live in this namespace

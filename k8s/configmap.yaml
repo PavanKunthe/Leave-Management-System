@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: leave-mgmt
+data:
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  DB_NAME: "leave_management"
+  ALGORITHM: "HS256"
+  TOKEN_EXPIRE_HOURS: "24"
+  CORS_ORIGINS: "*"
