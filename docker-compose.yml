@@ -1,0 +1,56 @@
+# Version of the Docker Compose format
+version: '3.8'
+
+# Services = the containers that make up your app
+services:
+
+  # ── PostgreSQL Database ─────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine          # Use official PostgreSQL image
+    container_name: leave-db
+    environment:                        # Set database credentials
+      POSTGRES_DB: leave_management
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+    ports:
+      - "5432:5432"                     # host:container
+    volumes:
+      - postgres_data:/var/lib/postgresql/data   # Persist data even if container stops
+    healthcheck:                        # Check if DB is ready
+      test: ["CMD-SHELL", "pg_isready -U admin -d leave_management"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend (FastAPI) ───────────────────────────────────────────────
+  backend:
+    build: ./backend                    # Build from backend/Dockerfile
+    container_name: leave-backend
+    environment:
+      DATABASE_URL: postgresql://admin:admin123@postgres:5432/leave_management
+      SECRET_KEY: super-secret-jwt-key-change-in-production
+      ALGORITHM: HS256
+      TOKEN_EXPIRE_HOURS: "24"
+    ports:
+      - "8000:8000"
+    depends_on:                         # Wait for DB to be healthy before starting
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped             # Auto-restart if it crashes
+
+  # ── Frontend (React + Nginx) ────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8000   # Backend URL for the React build
+    container_name: leave-frontend
+    ports:
+      - "3000:80"                       # Access frontend on localhost:3000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+# Named volume — Docker manages the storage location
+volumes:
+  postgres_data:
