@@ -6,7 +6,7 @@ import api from '../api/axios';
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: '', password: '', role: 'employee' });
+  const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -16,11 +16,6 @@ export default function Login() {
     setLoading(true);
     try {
       const res = await api.post('/auth/login', form);
-      if (res.data.user.role !== form.role) {
-        setError(`Access denied: You do not have ${form.role} privileges.`);
-        setLoading(false);
-        return;
-      }
       login(res.data.user, res.data.token);
       navigate(res.data.user.role === 'admin' ? '/admin/dashboard' : '/employee/dashboard');
     } catch (err) {
@@ -66,16 +61,6 @@ export default function Login() {
               required
             />
           </div>
-          <div className="form-group">
-            <label>Login As</label>
-            <select
-              value={form.role}
-              onChange={e => setForm({ ...form, role: e.target.value })}
-            >
-              <option value="employee">Employee</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
           <button type="submit" className="btn-primary btn-full" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
@@ -84,11 +69,6 @@ export default function Login() {
         <p className="auth-footer">
           Don't have an account? <Link to="/register">Register</Link>
         </p>
-
-        <div className="auth-hint">
-          <strong>Demo credentials:</strong><br />
-          Admin: admin@company.com / admin123
-          </div>
         </div>
       </div>
     </div>

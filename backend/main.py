@@ -8,17 +8,25 @@ import hashlib
 from jose import JWTError, jwt
 from datetime import date, datetime, timedelta
 from typing import Optional
+import os
+from dotenv import load_dotenv
+
+# ─── Load Environment Variables ───────────────────────────────────────────────
+load_dotenv()
 
 # ─── Database ─────────────────────────────────────────────────────────────────
-DATABASE_URL = "sqlite:///./leave_management.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./leave_management.db")
+
+# SQLite needs check_same_thread=False; PostgreSQL does not
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 # ─── JWT Config ───────────────────────────────────────────────────────────────
-SECRET_KEY = "leave-management-secret-2026"
-ALGORITHM = "HS256"
-TOKEN_EXPIRE_HOURS = 24
+SECRET_KEY = os.getenv("SECRET_KEY", "leave-management-secret-2026")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+TOKEN_EXPIRE_HOURS = int(os.getenv("TOKEN_EXPIRE_HOURS", "24"))
 
 # ─── Password Hashing ─────────────────────────────────────────────────────────
 def hash_password(password: str) -> str:
@@ -202,7 +210,7 @@ def register(data: RegisterSchema, db: Session = Depends(get_db)):
     user = User(
         name=data.name, email=data.email,
         password=hash_password(data.password),
-        role=data.role, department=data.department
+        role="employee", department=data.department    # Always register as employee (admin created via seed only)
     )
     db.add(user)
     db.commit()
