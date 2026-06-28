@@ -1,153 +1,176 @@
-# Employee Leave Management System
-## Project Documentation
+# Cloud-Native Employee Leave Management System
+
+A production-grade, containerized Employee Leave Management System deployed using cloud-native DevOps practices including Docker, Docker Compose, Kubernetes, and GitHub Actions CI/CD.
 
 ---
 
-## What Is This Project?
+## 🏛️ Application Architecture
 
-A full-stack web application with two roles:
-- **Employee** — apply for leaves, track balance, view history
-- **Admin** — approve/reject requests, view dashboard stats
+```
+                 [ User Browser ]
+                        │
+                  ( HTTP Port 80 )
+                        │
+                        ▼
+               [ Nginx Ingress Route ]
+               ├── /api  ──►  [ Backend Service (Port 8000) ]
+               │                     ├── Replicas: 2
+               │                     └── Health Probes: Liveness & Readiness
+               │
+               └── /     ──►  [ Frontend Service (Port 80) ]
+                                     ├── Replicas: 2
+                                     └── SPA Routing (Nginx Server)
+                                     
+                                     Backend Services
+                                             │
+                                             ▼
+                                  [ PostgreSQL Service ]
+                                             │
+                                   (Persistent Storage)
+                                             │
+                                             ▼
+                                     [ postgres-pvc ]
+```
 
 ---
 
-## Tech Stack
+## 🛠️ DevOps Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React + React Router + Axios |
-| Backend | FastAPI + SQLAlchemy |
-| Database | SQLite |
-| Auth | JWT (python-jose) + bcrypt |
+*   **Containerization:** Docker, Docker Compose (Multi-stage builds)
+*   **Orchestration:** Kubernetes (Deployments, Services, ConfigMaps, Secrets, StatefulSets, Ingress, Persistent Volumes)
+*   **CI/CD:** GitHub Actions
+*   **Web Server / Reverse Proxy:** Nginx (custom routing configuration for React single-page app)
+*   **Database:** PostgreSQL (with persistent volumes)
+*   **Backend Framework:** FastAPI (Python)
+*   **Frontend Library:** React (Vite)
 
 ---
 
-## Project Structure
+## 📁 Repository Structure
 
 ```
 leave-management/
+├── frontend/
+│   ├── src/                    # React codebase
+│   ├── Dockerfile              # Multi-stage container builds (Node -> Nginx)
+│   ├── nginx.conf              # SPA-routing and API-reverse-proxy configuration
+│   └── package.json
 ├── backend/
-│   ├── main.py          ← All APIs (auth + employee + admin + notifications)
-│   ├── requirements.txt ← Python dependencies
-│   └── myenv/           ← Virtual environment
-└── frontend/
-    └── src/
-        ├── api/axios.js              ← Axios instance with token
-        ├── context/AuthContext.jsx   ← Global user state
-        ├── components/
-        │   ├── Layout.jsx            ← Sidebar + Topbar
-        │   ├── ProtectedRoute.jsx    ← Role-based route guard
-        │   └── StatusBadge.jsx       ← Colored status pill
-        └── pages/
-            ├── Login.jsx
-            ├── Register.jsx
-            ├── EmployeeDashboard.jsx
-            ├── ApplyLeave.jsx
-            ├── MyRequests.jsx
-            ├── AdminDashboard.jsx
-            └── ManageRequests.jsx
+│   ├── main.py                 # FastAPI application
+│   ├── Dockerfile              # Python slim image build instructions
+│   ├── .env.example            # Environment variables template
+│   └── requirements.txt
+├── k8s/                        # Kubernetes manifest configurations
+│   ├── namespace.yaml          # Isolated namespace config
+│   ├── configmap.yaml          # App non-secret configs
+│   ├── secret.yaml             # Credentials (encoded)
+│   ├── postgres-pv.yaml        # Persistent volume claim for database durability
+│   ├── postgres-deployment.yaml# Postgres StatefulSet and Service
+│   ├── postgres-service.yaml
+│   ├── backend-deployment.yaml # Two replica backend pods with health checks
+│   ├── backend-service.yaml
+│   ├── frontend-deployment.yaml# Two replica frontend pods
+│   ├── frontend-service.yaml
+│   └── ingress.yaml            # Host/Path router
+├── .github/
+│   └── workflows/
+│       └── ci-cd.yml           # GitHub Actions test, build, and publish workflow
+└── docker-compose.yml          # Local multi-container development orchestration
 ```
 
 ---
 
-## Database Tables (5)
+## 🐳 Quick Start: Running Locally (Docker Compose)
 
-1. **users** — id, name, email, password (hashed), role, department
-2. **leave_types** — id, name (Casual/Sick/Earned), max_days
-3. **leave_balance** — id, user_id, leave_type_id, used_days, remaining
-4. **leave_requests** — id, user_id, leave_type_id, start_date, end_date, total_days, reason, status, admin_comment
-5. **notifications** — id, user_id, message, is_read, created_at
+Get the entire frontend, backend, and PostgreSQL database up with a single command:
 
----
+1.  **Clone the Repository:**
+    ```bash
+    git clone https://github.com/PavanKunthe/Leave-Management-System.git
+    cd Leave-Management-System
+    ```
 
-## API Routes
+2.  **Spin up the Containers:**
+    ```bash
+    docker compose up --build
+    ```
 
-### Auth
-- `POST /auth/register` — Create account
-- `POST /auth/login` — Login → returns JWT token
-- `GET /auth/me` — Get current user info
-
-### Employee
-- `GET /leave/types` — Get all leave types
-- `GET /leave/balance` — My remaining days per type
-- `POST /leave/apply` — Submit leave request
-- `GET /leave/my-requests` — All my requests
-- `PUT /leave/cancel/{id}` — Cancel pending request
-
-### Admin
-- `GET /admin/dashboard` — Stats + who's on leave today
-- `GET /admin/requests` — All pending requests
-- `GET /admin/all-requests` — All requests (any status)
-- `PUT /admin/approve/{id}` — Approve → deduct balance
-- `PUT /admin/reject/{id}` — Reject → save reason
-
-### Notifications
-- `GET /notifications` — My notifications + unread count
-- `PUT /notifications/read` — Mark all as read
+3.  **Access the Application:**
+    *   **Frontend:** `http://localhost:3000`
+    *   **Backend API:** `http://localhost:8000`
+    *   **API Documentation:** `http://localhost:8000/docs`
 
 ---
 
-## Business Logic (Key Rules)
+## ☸️ Kubernetes Deployment Guide
 
-### Apply Leave (3 Policy Checks):
-1. `start_date >= today` — no past dates
-2. No overlapping pending/approved leave
-3. `remaining >= total_days` — enough balance
+To deploy this application to a Kubernetes cluster (e.g. AWS EKS, Google Cloud GKE, minikube, or Docker Desktop Kubernetes):
 
-### Approve Leave:
-- Status → "approved"
-- `balance.used_days += total_days`
-- `balance.remaining -= total_days`
-- Notify employee
+1.  **Create the Namespace:**
+    ```bash
+    kubectl apply -f k8s/namespace.yaml
+    ```
 
-### Reject Leave:
-- Status → "rejected"
-- Save admin_comment
-- Do NOT touch balance
-- Notify employee
+2.  **Deploy Configs and Secrets:**
+    *   Generate Base64 encoded values for the secret credentials (e.g. `[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("yourpassword"))` on Windows Powershell).
+    *   Inject them into `k8s/secret.yaml`.
+    *   Apply configurations:
+        ```bash
+        kubectl apply -f k8s/configmap.yaml
+        kubectl apply -f k8s/secret.yaml
+        ```
 
-### Cancel Leave:
-- Only if status = "pending"
-- Status → "cancelled"
-- Balance unchanged
+3.  **Apply Database Storage & Pods:**
+    ```bash
+    kubectl apply -f k8s/postgres-pv.yaml
+    kubectl apply -f k8s/postgres-service.yaml
+    kubectl apply -f k8s/postgres-deployment.yaml
+    ```
+
+4.  **Deploy the Application Pods (Frontend & Backend):**
+    ```bash
+    kubectl apply -f k8s/backend-deployment.yaml
+    kubectl apply -f k8s/backend-service.yaml
+    kubectl apply -f k8s/frontend-deployment.yaml
+    kubectl apply -f k8s/frontend-service.yaml
+    ```
+
+5.  **Expose the cluster using Ingress:**
+    ```bash
+    kubectl apply -f k8s/ingress.yaml
+    ```
 
 ---
 
-## How to Run
+## 🚀 CI/CD Pipeline (GitHub Actions)
 
-### Backend
-```powershell
-cd C:\Users\Win\Desktop\leave-management\backend
-.\myenv\Scripts\uvicorn main:app --reload
+A fully automated CI/CD pipeline is configured in `.github/workflows/ci-cd.yml`:
+
 ```
-Opens at: http://localhost:8000
-API docs: http://localhost:8000/docs
-
-### Frontend
-```powershell
-cd C:\Users\Win\Desktop\leave-management\frontend
-npm run dev
+               [ Push to main / Open PR ]
+                           │
+                           ▼
+                  [ Job 1: Build Test ]
+         ├── Setup Python & check server dependencies
+         └── Setup Node.js & build frontend bundle
+                           │
+                 (If successful push)
+                           │
+                           ▼
+               [ Job 2: Build & Push Images ]
+         ├── Authenticate against Docker Hub
+         └── Build and push tagged frontend & backend images
 ```
-Opens at: http://localhost:5173
+
+To configure this for your own Docker Hub:
+1. Add `DOCKER_USERNAME` and `DOCKER_PASSWORD` to your GitHub Repository Secrets (**Settings -> Secrets and variables -> Actions**).
+2. The workflow will automatically publish new container images to Docker Hub on every push to the `main` branch.
 
 ---
 
-## Default Admin Account
-- Email: `admin@company.com`
-- Password: `admin123`
+## 🔑 Default Credentials
 
----
+Use the following seeded administrator credentials for the initial login check:
 
-## Resume Line
-
-> "Developed a full-stack Employee Leave Management System with role-based access control, automated balance tracking, and a DB-driven notification system using React, FastAPI, and SQLAlchemy."
-
----
-
-## Interview Explanation
-
-**One-liner:**
-> "I built a Leave Management System where employees apply for leaves and admins approve or reject them, with automatic balance tracking and role-based access."
-
-**Technical:**
-> "The backend uses FastAPI with SQLAlchemy — 5 related tables connected via foreign keys. JWT tokens carry the user's role. When an admin approves a request, the backend automatically deducts from the employee's leave balance. I also implemented 3 policy checks on the backend to prevent invalid applications."
+*   **Admin Email:** `admin@company.com`
+*   **Admin Password:** `admin123`
