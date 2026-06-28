@@ -50,25 +50,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+      # - name: Log in to Docker Hub
+      #   uses: docker/login-action@v3
+      #   with:
+      #     username: ${{ secrets.DOCKER_USERNAME }}
+      #     password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push backend image
+      - name: Build backend image (Test Only)
         uses: docker/build-push-action@v5
         with:
           context: ./backend
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/leave-backend:latest
+          push: false
+          tags: leave-backend:latest
 
-      - name: Build and push frontend image
+      - name: Build frontend image (Test Only)
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/leave-frontend:latest
+          push: false
+          tags: leave-frontend:latest
 
       - name: AI Automation / Alert Webhook (N8n Trigger)
         if: always()
