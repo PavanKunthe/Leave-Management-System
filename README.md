@@ -1,88 +1,60 @@
 # Cloud-Native Employee Leave Management System
 
-A production-grade, containerized Employee Leave Management System deployed using cloud-native DevOps practices including Docker, Docker Compose, Kubernetes, and GitHub Actions CI/CD.
+A production-grade, containerized Employee Leave Management System built with React and FastAPI. This project demonstrates advanced cloud-native DevOps practices including Docker, Kubernetes, GitHub Actions CI/CD, Nginx API Gateways, and Prometheus/Grafana observability.
 
 ---
 
-## 🏛️ Application Architecture
+## ✨ Application Features (Software Engineering)
 
-```
-                 [ User Browser ]
-                        │
-                  ( HTTP Port 80 )
-                        │
-                        ▼
-               [ Nginx Ingress Route ]
-               ├── /api  ──►  [ Backend Service (Port 8000) ]
-               │                     ├── Replicas: 2
-               │                     └── Health Probes: Liveness & Readiness
-               │
-               └── /     ──►  [ Frontend Service (Port 80) ]
-                                     ├── Replicas: 2
-                                     └── SPA Routing (Nginx Server)
-                                     
-                                     Backend Services
-                                             │
-                                             ▼
-                                  [ PostgreSQL Service ]
-                                             │
-                                   (Persistent Storage)
-                                             │
-                                             ▼
-                                     [ postgres-pvc ]
-```
+*   **Role-Based Access Control (RBAC):** Secure JWT-based authentication distinguishing between `Admin` and `Employee` roles.
+*   **Employee Portal:** Employees can submit leave requests, view their historical requests, and check their real-time leave balances.
+*   **Admin Dashboard:** Administrators can view all pending organization-wide leave requests and approve/reject them with comments.
+*   **Secure Architecture:** Passwords are mathematically hashed (bcrypt), and role assignment is strictly controlled by the backend to prevent privilege escalation.
 
 ---
 
-## 🛠️ DevOps Tech Stack
+## 🛠️ DevOps & Cloud-Native Architecture
 
-*   **Containerization:** Docker, Docker Compose (Multi-stage builds)
-*   **Orchestration:** Kubernetes (Deployments, Services, ConfigMaps, Secrets, StatefulSets, Ingress, Persistent Volumes)
-*   **CI/CD:** GitHub Actions
-*   **Web Server / Reverse Proxy:** Nginx (custom routing configuration for React single-page app)
-*   **Database:** PostgreSQL (with persistent volumes)
-*   **Backend Framework:** FastAPI (Python)
-*   **Frontend Library:** React (Vite)
+*   **Containerization:** Docker & Docker Compose (Multi-stage builds for minimal image sizes).
+*   **API Gateway:** Nginx Reverse Proxy (Routes `/api` to the backend, `/` to the frontend, and completely isolates internal ports from the public internet).
+*   **Monitoring & Observability:** Prometheus (metrics scraping) and Grafana (data visualization).
+*   **CI/CD:** GitHub Actions (Automated build and test pipelines).
+*   **AI Automation:** Automated Webhooks triggered on pipeline execution for AI summarization.
+*   **Orchestration:** Kubernetes (Deployments, Services, ConfigMaps, Secrets, Ingress, Persistent Volumes).
+*   **Database:** PostgreSQL.
 
 ---
 
-## 📁 Repository Structure
+## 🏛️ System Architecture
 
-```
-leave-management/
-├── frontend/
-│   ├── src/                    # React codebase
-│   ├── Dockerfile              # Multi-stage container builds (Node -> Nginx)
-│   ├── nginx.conf              # SPA-routing and API-reverse-proxy configuration
-│   └── package.json
-├── backend/
-│   ├── main.py                 # FastAPI application
-│   ├── Dockerfile              # Python slim image build instructions
-│   ├── .env.example            # Environment variables template
-│   └── requirements.txt
-├── k8s/                        # Kubernetes manifest configurations
-│   ├── namespace.yaml          # Isolated namespace config
-│   ├── configmap.yaml          # App non-secret configs
-│   ├── secret.yaml             # Credentials (encoded)
-│   ├── postgres-pv.yaml        # Persistent volume claim for database durability
-│   ├── postgres-deployment.yaml# Postgres StatefulSet and Service
-│   ├── postgres-service.yaml
-│   ├── backend-deployment.yaml # Two replica backend pods with health checks
-│   ├── backend-service.yaml
-│   ├── frontend-deployment.yaml# Two replica frontend pods
-│   ├── frontend-service.yaml
-│   └── ingress.yaml            # Host/Path router
-├── .github/
-│   └── workflows/
-│       └── ci-cd.yml           # GitHub Actions test, build, and publish workflow
-└── docker-compose.yml          # Local multi-container development orchestration
+```text
+                  [ User Browser ]
+                         │
+                   ( HTTP Port 80 )
+                         │
+                         ▼
+                [ Nginx API Gateway ]
+                ├── /api  ──►  [ Backend Service (FastAPI) ] ◄──┐
+                │                     ├── Replicas: 2           │
+                │                     └── Health Probes         │
+                │                                               │ (Scrapes /metrics)
+                └── /     ──►  [ Frontend Service (React) ]     │
+                                      ├── Replicas: 2           │
+                                      └── SPA Routing           │
+                                                                │
+                                   [ PostgreSQL Database ]      │
+                                              │                 │
+                                    (Persistent Storage)        │
+                                                                │
+                 [ Grafana ] ◄──── [ Prometheus ] ──────────────┘
+                (Port 3000)      (Metrics Aggregator)
 ```
 
 ---
 
 ## 🐳 Quick Start: Running Locally (Docker Compose)
 
-Get the entire frontend, backend, and PostgreSQL database up with a single command:
+Get the entire frontend, backend, database, gateway, and monitoring stack up with a single command:
 
 1.  **Clone the Repository:**
     ```bash
@@ -96,15 +68,16 @@ Get the entire frontend, backend, and PostgreSQL database up with a single comma
     ```
 
 3.  **Access the Application:**
-    *   **Frontend:** `http://localhost:3000`
-    *   **Backend API:** `http://localhost:8000`
-    *   **API Documentation:** `http://localhost:8000/docs`
+    *   **Main Application (Frontend routed via Nginx):** `http://localhost`
+    *   **Monitoring Dashboard (Grafana):** `http://localhost:3000` *(Login: admin / admin)*
+    *   **Raw Backend API Metrics:** `http://localhost:8000/metrics`
+    *   **API Documentation:** `http://localhost/api/docs`
 
 ---
 
 ## ☸️ Kubernetes Deployment Guide
 
-To deploy this application to a Kubernetes cluster (e.g. AWS EKS, Google Cloud GKE, minikube, or Docker Desktop Kubernetes):
+To deploy this application to a Kubernetes cluster (e.g. AWS EKS, Google Cloud GKE, minikube):
 
 1.  **Create the Namespace:**
     ```bash
@@ -112,8 +85,7 @@ To deploy this application to a Kubernetes cluster (e.g. AWS EKS, Google Cloud G
     ```
 
 2.  **Deploy Configs and Secrets:**
-    *   Generate Base64 encoded values for the secret credentials (e.g. `[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("yourpassword"))` on Windows Powershell).
-    *   Inject them into `k8s/secret.yaml`.
+    *   Generate Base64 encoded values for the secret credentials and inject them into `k8s/secret.yaml`.
     *   Apply configurations:
         ```bash
         kubectl apply -f k8s/configmap.yaml
@@ -146,25 +118,10 @@ To deploy this application to a Kubernetes cluster (e.g. AWS EKS, Google Cloud G
 
 A fully automated CI/CD pipeline is configured in `.github/workflows/ci-cd.yml`:
 
-```
-               [ Push to main / Open PR ]
-                           │
-                           ▼
-                  [ Job 1: Build Test ]
-         ├── Setup Python & check server dependencies
-         └── Setup Node.js & build frontend bundle
-                           │
-                 (If successful push)
-                           │
-                           ▼
-               [ Job 2: Build & Push Images ]
-         ├── Authenticate against Docker Hub
-         └── Build and push tagged frontend & backend images
-```
-
-To configure this for your own Docker Hub:
-1. Add `DOCKER_USERNAME` and `DOCKER_PASSWORD` to your GitHub Repository Secrets (**Settings -> Secrets and variables -> Actions**).
-2. The workflow will automatically publish new container images to Docker Hub on every push to the `main` branch.
+*   **Trigger:** Pushes to the `main` branch.
+*   **Job 1:** Checks out the code and builds the Backend Docker image to ensure the Python environment compiles successfully.
+*   **Job 2:** Builds the Frontend Docker image to ensure the Node.js React bundle compiles successfully.
+*   **Job 3:** Fires an external Webhook (N8n) to trigger downstream AI automation pipelines based on the job status.
 
 ---
 
