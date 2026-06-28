@@ -10,6 +10,7 @@ from datetime import date, datetime, timedelta
 from typing import Optional
 import os
 from dotenv import load_dotenv
+from prometheus_fastapi_instrumentator import Instrumentator
 
 # ─── Load Environment Variables ───────────────────────────────────────────────
 load_dotenv()
@@ -105,6 +106,9 @@ Base.metadata.create_all(bind=engine)
 
 # ─── FastAPI App ──────────────────────────────────────────────────────────────
 app = FastAPI(title="Leave Management API", version="1.0.0")
+
+# Setup Prometheus Instrumentator
+Instrumentator().instrument(app).expose(app)
 
 app.add_middleware(
     CORSMiddleware,

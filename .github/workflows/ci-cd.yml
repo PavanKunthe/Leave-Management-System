@@ -69,3 +69,11 @@ jobs:
           context: ./frontend
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/leave-frontend:latest
+
+      - name: AI Automation / Alert Webhook (N8n Trigger)
+        if: always()
+        run: |
+          echo "Sending build status webhook for AI summarization (N8n/Discord)..."
+          curl -X POST -H "Content-Type: application/json" \
+            -d "{\"repository\": \"${{ github.repository }}\", \"status\": \"${{ job.status }}\", \"actor\": \"${{ github.actor }}\", \"commit\": \"${{ github.sha }}\"}" \
+            https://eo0r1u8c8z3p9o8.m.pipedream.net || true

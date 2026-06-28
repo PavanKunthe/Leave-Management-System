@@ -6,17 +6,15 @@ services:
 
   # ── PostgreSQL Database ─────────────────────────────────────────────
   postgres:
-    image: postgres:15-alpine          # Use official PostgreSQL image
+    image: postgres:15-alpine
     container_name: leave-db
-    environment:                        # Set database credentials
+    environment:
       POSTGRES_DB: leave_management
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin123
-    ports:
-      - "5432:5432"                     # host:container
     volumes:
-      - postgres_data:/var/lib/postgresql/data   # Persist data even if container stops
-    healthcheck:                        # Check if DB is ready
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
       test: ["CMD-SHELL", "pg_isready -U admin -d leave_management"]
       interval: 10s
       timeout: 5s
@@ -24,33 +22,66 @@ services:
 
   # ── Backend (FastAPI) ───────────────────────────────────────────────
   backend:
-    build: ./backend                    # Build from backend/Dockerfile
+    build: ./backend
     container_name: leave-backend
     environment:
       DATABASE_URL: postgresql://admin:admin123@postgres:5432/leave_management
       SECRET_KEY: super-secret-jwt-key-change-in-production
       ALGORITHM: HS256
       TOKEN_EXPIRE_HOURS: "24"
-    ports:
-      - "8000:8000"
-    depends_on:                         # Wait for DB to be healthy before starting
+    # No exposed ports here! Only accessible within the Docker network by the gateway.
+    depends_on:
       postgres:
         condition: service_healthy
-    restart: unless-stopped             # Auto-restart if it crashes
+    restart: unless-stopped
 
   # ── Frontend (React + Nginx) ────────────────────────────────────────
   frontend:
     build:
       context: ./frontend
       args:
-        VITE_API_URL: http://localhost:8000   # Backend URL for the React build
+        # Important: Tell React to talk to the gateway's /api route, not port 8000
+        VITE_API_URL: /api
     container_name: leave-frontend
-    ports:
-      - "3000:80"                       # Access frontend on localhost:3000
+    # No exposed ports here! Only accessible within the Docker network by the gateway.
     depends_on:
       - backend
     restart: unless-stopped
 
-# Named volume — Docker manages the storage location
+  # ── API Gateway (Nginx Reverse Proxy) ───────────────────────────────
+  gateway:
+    image: nginx:alpine
+    container_name: leave-gateway
+    ports:
+      - "80:80" # Standard HTTP port on the host machine
+    volumes:
+      - ./nginx-gateway.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+  # ── Monitoring: Prometheus ──────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  # ── Monitoring: Grafana ─────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000" # We moved frontend to 80, so 3000 is free for Grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
 volumes:
   postgres_data:
